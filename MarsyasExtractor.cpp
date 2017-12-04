@@ -15,13 +15,19 @@ MarsyasExtractor::MarsyasExtractor(string sfName1) {
 	net = mng.create("Series", "net");
 	net->addMarSystem(mng.create("SoundFileSource", "src"));
 
+	/*NEW*/
+	MarSystem* spectimeFanout = mng.create("Fanout", "spectimeFanout");
+	spectimeFanout->addMarSystem(mng.create("ZeroCrossings", "zcrs")); //1
+	spectimeFanout->addMarSystem(mng.create("Rms", "rms"));            //2
+	/*NEW*/
+
 	MarSystem* spectrumOperation = mng.create("Series", "spectrumOperation");
 
 	spectrumOperation->addMarSystem(mng.create("Windowing", "ham"));
 	spectrumOperation->addMarSystem(mng.create("Spectrum", "spec"));
 	spectrumOperation->addMarSystem(mng.create("PowerSpectrum", "pspk"));
 
-	net->addMarSystem(spectrumOperation);
+	//net->addMarSystem(spectrumOperation);
 
 	MarSystem* featureFanout = mng.create("Fanout", "featureFanout");
 	featureFanout->addMarSystem(mng.create("Centroid", "centroid"));
@@ -29,17 +35,24 @@ MarsyasExtractor::MarsyasExtractor(string sfName1) {
 	featureFanout->addMarSystem(mng.create("MFCC", "mfcc"));
 	featureFanout->addMarSystem(mng.create("Kurtosis", "kurtosis"));
 	featureFanout->addMarSystem(mng.create("Skewness", "skewness"));
-	//featureFanout->addMarSystem(mng.create("SFM", "sfm"));
-	//featureFanout->addMarSystem(mng.create("SCF", "scf"));
+	/*NEW*/
+	featureFanout->addMarSystem(mng.create("SFM", "sfm"));
+	featureFanout->addMarSystem(mng.create("SCF", "scf"));
+	/*NEW*/
 
-	net->addMarSystem(featureFanout);
+	//net->addMarSystem(featureFanout);
+
+	//INTERCONNECTING AS IN ADAM TINDALE'S
+	spectrumOperation->addMarSystem(featureFanout);      // theExtractorNet contains(spectTimeFanout which contains ((theSpectralNet which contains featureFanout)))
+	spectimeFanout->addMarSystem(spectrumOperation);
+	net ->addMarSystem(spectimeFanout);
 
 	MarSystem* acc = mng.create("Accumulator", "acc");
 	acc->addMarSystem(net);
 
 	total = mng.create("Series", "total");
 	total->addMarSystem(acc);
-	total->updControl("Accumulator/acc/mrs_natural/nTimes", 300);//should it be 20?
+	total->updControl("Accumulator/acc/mrs_natural/nTimes", 10);//should it be 20?
 	total->addMarSystem(mng.create("Mean", "mn"));               //or leave as it is?
 
 	total->addMarSystem(mng.create("Annotator", "ann"));
@@ -54,7 +67,7 @@ MarsyasExtractor::MarsyasExtractor(string sfName1) {
 	net->updControl("SoundFileSource/src/mrs_string/filename", sfName1);
 	net->linkControl("mrs_bool/hasData", "SoundFileSource/src/mrs_bool/hasData");
 
-	total->updControl("mrs_natural/inSamples", 512);// how many samples is in our things? enough?
+	total->updControl("mrs_natural/inSamples", 1024);// how many samples is in our things? enough?
 }
 
 MarsyasExtractor::~MarsyasExtractor() {
